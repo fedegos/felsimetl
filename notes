@@ -1,0 +1,62 @@
+
+# Semana Año Flujo Tipo Rubro Fecha Cuenta Detalle Ingreso Egreso #
+
+###########################
+########## REAL ###########
+###########################
+
+
+# si fecha cobro cheque, registrar fecha de cobro en BI. Si no, tomar fecha
+
+## imputar rubros ##
+
+# casos especiales:
+# - MORATORIA AFIP xxxx
+
+# - eliminar transferencias entre cuentas propias entre caja y credicoop
+#   fecha, rubro, monto "T/E CUENTAS PROPIAS" cuenta: "FELSIM CAJA" / "FELSIM CREDICOOP"
+
+# - COMAFI o Nación- se convierte a cuenta "Préstamos bancarios"
+
+# - cargas sociales: "CARGAS SOCIALES" > "SUELDOS"
+
+# - cheques de terceros: sólo tomar los que tienen un valor no nulo en en "PROVEEDORES"
+#   falta completar la cuenta en la solapa cheques
+
+# formatear los números sin separadores de miles y con coma en el decimal. tiene que quedar texto sin formato.
+
+## consolidar las 3 solapas en una nueva ##
+# aclarando la columna
+# agregar columna flujo: actual
+# agregar columna semana y columna año a partir de fecha
+
+
+
+### PROYECCIONES ###
+
+## egresos ##
+
+# - actualizar compromisos futuros ya asumidos (cheques - surge del real)
+#   identificar actual y posterior a hoy se cambia a: proyectado, impostergable (es lo provisionado)
+#   cambiar flujo por “Proyectado” y Flexibilidad por “Impostergable” para todos los registros pegados.
+
+# - Detallar Flujo “Proyectado”, Flexibilidad “Negociable” para todos los reigstros de proyección.
+
+# - agregar fórmula de rubros (igual que real)
+# - agregar columnas de semana y año
+# - formatear números
+
+## ingresos ##
+
+# excel cuentas corrientes
+# lo que sale del excel es proyectado impostergable, si había proyección negociable para la misma semana
+# hay que pisarla
+
+# sólo tomar fecha posterior a hoy
+
+# otro excel: proyecciones modificadas
+
+# agregar semanas de proyección hasta llegar a 13 (generar archivo excel para completar proyecciones)
+# flexibilidad: negociable
+# metodología (hasta ahora): promedio de las últimas 4 semanas impostergables - ver con Marina -
+# tomar info de proyecciones
