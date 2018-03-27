@@ -5,71 +5,23 @@ from datetime import datetime
 from constants import *
 
 from tableextraction.tableunpacker import *
-from categoriesreader.categoriesreader import CategoriesReader
+from categoriesreader.categoriesreader import *
+from exceladapter.excelreader import *
+from exceladapter.excelwriter import *
+
+from translators.googletranslator import *
 
 # abrir
-actual_wb = openpyxl.load_workbook(filename='inputs/PLANILLA CONTABILIDAD ACTIVA 2017.xlsx', data_only=True)
-# rubros_wb = openpyxl.load_workbook(filename='inputs/RUBROS.xlsx', data_only=True)
-current_accounts_wb = openpyxl.load_workbook(filename='inputs/CUENTAS CORRIENTES.xlsx', data_only=True)
-
-# rubros_sheet = rubros_wb.get_sheet_by_name(RUBROS_SHEET_NAME)
 
 categories_reader = CategoriesReader()
+actual_excelreader = ExcelReader('inputs/PLANILLA CONTABILIDAD ACTIVA 2017.xlsx')
+current_accounts_excelreader = ExcelReader('inputs/CUENTAS CORRIENTES.xlsx')
 
-cheques_sheet = actual_wb.get_sheet_by_name(CHEQUES_SHEET_NAME)
-caja_sheet = actual_wb.get_sheet_by_name(CAJA_SHEET_NAME)
-credicoop_sheet = actual_wb.get_sheet_by_name(CREDICOOP_SHEET_NAME)
+cheques_sheet = actual_excelreader.get_sheet(CHEQUES_SHEET_NAME)
+caja_sheet = actual_excelreader.get_sheet(CAJA_SHEET_NAME)
+credicoop_sheet = actual_excelreader.get_sheet(CREDICOOP_SHEET_NAME)
 
-cuentas_corrientes_sheet = current_accounts_wb.get_sheet_by_name(CUENTAS_CORRIENTES_SHEET_NAME)
-
-'''
-rubros = {}
-for rowNum in range(2, rubros_sheet.max_row):  # skip the first row
-    item = {}
-    key = rubros_sheet.cell(row=rowNum, column=1).value
-    item['category'] = rubros_sheet.cell(row=rowNum, column=2).value
-    item['account'] = rubros_sheet.cell(row=rowNum, column=3).value
-    item['details'] = rubros_sheet.cell(row=rowNum, column=4).value
-
-    rubros[key] = item
-'''
-
-def to_google_num(value):
-    return "{:}".format(value).replace(".", ",")
-
-
-'''
-def get_category_from_details(details):
-    account = ""
-    category = ""
-
-    for key, value in rubros.items():
-        if value['details'] == details:
-            account = value['account']
-            category = value['category']
-            break
-
-    return [category, account]
-
-
-def get_category_from_account_and_details(account, details):
-    if details.startswith(MORATORIA_AFIP):
-        return IMPUESTOS
-
-    key = "%s-%s" % (account, details)
-    if key in rubros:
-        return rubros[key]['category']
-    else:
-        return NEW_CATEGORY
-'''
-
-
-
-def unpack_dates(date_value):
-    date = date_value.strftime("%d/%m/%Y") if date_value else "N/D"
-    week = int(date_value.strftime("%U")) + 1 if date_value else "N/D"
-    year = date_value.strftime("%Y") if date_value else "N/D"
-    return date, week, year
+cuentas_corrientes_sheet = current_accounts_excelreader.get_sheet(CUENTAS_CORRIENTES_SHEET_NAME)
 
 # initialize lists
 
@@ -126,7 +78,7 @@ for rowNum in range(3, caja_sheet.max_row):
     if details in BANKS:
         account = PRESTAMOS_BANCARIOS
 
-    if (account == T_E_CUENTAS_PROPIAS and details == "FELSIM CREDICOOP"):
+    if (account == T_E_CUENTAS_PROPIAS and details == FELSIM_CREDICOOP):
         continue
 
     expense = row_unpacker.get_value_at(5)
@@ -213,8 +165,9 @@ for rowNum in range(3, credicoop_sheet.max_row):
     actual_flows.append(cash_flow)
 
 # crear excel nuevo
-new_wb = openpyxl.Workbook()
-new_sheet = new_wb.create_sheet(index=0, title='Consolidado')
+filename = 'outputs/consolidado_real_' + time.strftime("%Y%m%d-%H%M%S") + '.xlsx'
+actual_excelwriter = ExcelWriter(filename)
+new_sheet = actual_excelwriter.create_sheet('Consolidado')
 
 new_sheet["A1"] = "Semana"
 new_sheet["B1"] = "Año"
@@ -241,12 +194,12 @@ for index, flow in enumerate(actual_flows):
     new_sheet["I" + row_num] = flow['income']
     new_sheet["J" + row_num] = flow['expense']
 
-filename = 'outputs/consolidado_real_' + time.strftime("%Y%m%d-%H%M%S") + '.xlsx'
-new_wb.save(filename=filename)
+actual_excelwriter.save()
 
 # crear excel de proyecciones
-projected_wb = openpyxl.Workbook()
-projected_sheet = projected_wb.create_sheet(index=0, title='Projectado')
+projected_flow_filename = 'outputs/proyecciones_' + time.strftime("%Y%m%d-%H%M%S") + '.xlsx'
+projected_excelwriter = ExcelWriter(projected_flow_filename)
+projected_sheet = projected_excelwriter.create_sheet('Proyectado')
 
 projected_sheet["A1"] = "Semana"
 projected_sheet["B1"] = "Año"
@@ -273,12 +226,13 @@ for index, projected_flow in enumerate(projected_flows):
     projected_sheet["I" + row_num] = flow['income']
     projected_sheet["J" + row_num] = flow['expense']
 
-projected_flow_filename = 'outputs/proyecciones_' + time.strftime("%Y%m%d-%H%M%S") + '.xlsx'
-projected_wb.save(filename=projected_flow_filename)
+projected_excelwriter.save()
 
 # crear excel de categorías faltantes
-new_categories_wb = openpyxl.Workbook()
-new_categories_sheet = new_categories_wb.create_sheet(index=0, title='Rubros Faltantes')
+
+missing_categories_filename = 'outputs/rubros_faltantes_' + time.strftime("%Y%m%d-%H%M%S") + '.xlsx'
+missing_categories_excelwriter = ExcelWriter(missing_categories_filename)
+new_categories_sheet = missing_categories_excelwriter.create_sheet('Rubros Faltantes')
 
 new_categories_sheet["A1"] = "CuentaDetalle"
 new_categories_sheet["B1"] = "Rubro"
@@ -293,5 +247,4 @@ for index, missing_category_str in enumerate(new_categories):
     new_categories_sheet["C" + row_num] = missing_category['account']
     new_categories_sheet["D" + row_num] = missing_category['details']
 
-missing_categories_filename = 'outputs/rubros_faltantes_' + time.strftime("%Y%m%d-%H%M%S") + '.xlsx'
-new_categories_wb.save(filename=missing_categories_filename)
+missing_categories_excelwriter.save()
