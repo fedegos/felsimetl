@@ -4,12 +4,17 @@ import json
 from datetime import datetime
 from constants import *
 
+from tableextraction.tableunpacker import *
+from categoriesreader.categoriesreader import CategoriesReader
+
 # abrir
 actual_wb = openpyxl.load_workbook(filename='inputs/PLANILLA CONTABILIDAD ACTIVA 2017.xlsx', data_only=True)
-rubros_wb = openpyxl.load_workbook(filename='inputs/RUBROS.xlsx', data_only=True)
+# rubros_wb = openpyxl.load_workbook(filename='inputs/RUBROS.xlsx', data_only=True)
 current_accounts_wb = openpyxl.load_workbook(filename='inputs/CUENTAS CORRIENTES.xlsx', data_only=True)
 
-rubros_sheet = rubros_wb.get_sheet_by_name(RUBROS_SHEET_NAME)
+# rubros_sheet = rubros_wb.get_sheet_by_name(RUBROS_SHEET_NAME)
+
+categories_reader = CategoriesReader()
 
 cheques_sheet = actual_wb.get_sheet_by_name(CHEQUES_SHEET_NAME)
 caja_sheet = actual_wb.get_sheet_by_name(CAJA_SHEET_NAME)
@@ -17,6 +22,7 @@ credicoop_sheet = actual_wb.get_sheet_by_name(CREDICOOP_SHEET_NAME)
 
 cuentas_corrientes_sheet = current_accounts_wb.get_sheet_by_name(CUENTAS_CORRIENTES_SHEET_NAME)
 
+'''
 rubros = {}
 for rowNum in range(2, rubros_sheet.max_row):  # skip the first row
     item = {}
@@ -26,12 +32,13 @@ for rowNum in range(2, rubros_sheet.max_row):  # skip the first row
     item['details'] = rubros_sheet.cell(row=rowNum, column=4).value
 
     rubros[key] = item
-
+'''
 
 def to_google_num(value):
     return "{:}".format(value).replace(".", ",")
 
 
+'''
 def get_category_from_details(details):
     account = ""
     category = ""
@@ -54,6 +61,8 @@ def get_category_from_account_and_details(account, details):
         return rubros[key]['category']
     else:
         return NEW_CATEGORY
+'''
+
 
 
 def unpack_dates(date_value):
@@ -61,27 +70,6 @@ def unpack_dates(date_value):
     week = int(date_value.strftime("%U")) + 1 if date_value else "N/D"
     year = date_value.strftime("%Y") if date_value else "N/D"
     return date, week, year
-
-
-class RowUnpacker:
-    def __init__(self, sheet, row_num):
-        self.sheet = sheet
-        self.row_num = row_num
-
-    def get_value_at(self, col):
-        return self.sheet.cell(row=rowNum, column=col).value
-
-
-class TableUnpacker:
-    def __init__(self, sheet):
-        self.sheet = sheet
-
-    def get_row_unpacker(self, row):
-        return RowUnpacker(self.sheet, row)
-
-    def get_value_at(self, row, col):
-        return self.sheet.cell(row=rowNum, column=col).value
-
 
 # initialize lists
 
@@ -108,7 +96,7 @@ for rowNum in range(3, cheques_sheet.max_row):  # skip the first row
     check['type'] = CHEQUES_TYPE  # cheques
     check['details'] = details
 
-    category, account = get_category_from_details(details)
+    category, account = categories_reader.get_category_from_details(details)
     check['category'] = category
     check['account'] = account
     check['income'] = ""
@@ -143,7 +131,7 @@ for rowNum in range(3, caja_sheet.max_row):
 
     expense = row_unpacker.get_value_at(5)
     income = row_unpacker.get_value_at(6)
-    category = get_category_from_account_and_details(account, details)
+    category = categories_reader.get_category_from_account_and_details(account, details)
 
     if category == NEW_CATEGORY:
         new_categories.add('{"account": "%s", "details": "%s"}' % (account, details))
@@ -196,7 +184,7 @@ for rowNum in range(3, credicoop_sheet.max_row):
 
     expense = row_unpacker.get_value_at(9)
     income = row_unpacker.get_value_at(10)
-    category = get_category_from_account_and_details(account, details)
+    category = categories_reader.get_category_from_account_and_details(account, details)
 
     if category == NEW_CATEGORY:
         new_categories.add('{"account": "%s", "details": "%s"}' % (account, details))
@@ -253,8 +241,40 @@ for index, flow in enumerate(actual_flows):
     new_sheet["I" + row_num] = flow['income']
     new_sheet["J" + row_num] = flow['expense']
 
-filename = 'outputs/consolidado_' + time.strftime("%Y%m%d-%H%M%S") + '.xlsx'
+filename = 'outputs/consolidado_real_' + time.strftime("%Y%m%d-%H%M%S") + '.xlsx'
 new_wb.save(filename=filename)
+
+# crear excel de proyecciones
+projected_wb = openpyxl.Workbook()
+projected_sheet = projected_wb.create_sheet(index=0, title='Projectado')
+
+projected_sheet["A1"] = "Semana"
+projected_sheet["B1"] = "Año"
+projected_sheet["C1"] = "Flujo"
+projected_sheet["D1"] = "Tipo"
+projected_sheet["E1"] = "Rubro"
+projected_sheet["F1"] = "Fecha"
+projected_sheet["G1"] = "Cuenta"
+projected_sheet["H1"] = "Detalle"
+projected_sheet["I1"] = "Ingreso"
+projected_sheet["J1"] = "Egreso"
+
+for index, projected_flow in enumerate(projected_flows):
+    row_num = str(index + 2)
+
+    projected_sheet["A" + row_num] = flow['week']
+    projected_sheet["B" + row_num] = flow['year']
+    projected_sheet["C" + row_num] = flow['flow']
+    projected_sheet["D" + row_num] = flow['type']
+    projected_sheet["E" + row_num] = flow['category']
+    projected_sheet["F" + row_num] = flow['date']
+    projected_sheet["G" + row_num] = flow['account']
+    projected_sheet["H" + row_num] = flow['details']
+    projected_sheet["I" + row_num] = flow['income']
+    projected_sheet["J" + row_num] = flow['expense']
+
+projected_flow_filename = 'outputs/proyecciones_' + time.strftime("%Y%m%d-%H%M%S") + '.xlsx'
+projected_wb.save(filename=projected_flow_filename)
 
 # crear excel de categorías faltantes
 new_categories_wb = openpyxl.Workbook()
