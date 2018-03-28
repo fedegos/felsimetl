@@ -4,18 +4,18 @@ import json
 from datetime import datetime
 from constants import *
 
-from tableextraction.tableunpacker import *
-from categoriesreader.categoriesreader import *
-from exceladapter.excelreader import *
-from exceladapter.excelwriter import *
+import tableextraction
+import categoriesreader
+import exceladapter
+import translators
 
-from translators.googletranslator import *
+import excelbuilder
 
 # abrir
 
-categories_reader = CategoriesReader()
-actual_excelreader = ExcelReader('inputs/PLANILLA CONTABILIDAD ACTIVA 2017.xlsx')
-current_accounts_excelreader = ExcelReader('inputs/CUENTAS CORRIENTES.xlsx')
+categories_reader = categoriesreader.CategoriesReader()
+actual_excelreader = exceladapter.excelreader.ExcelReader('inputs/PLANILLA CONTABILIDAD ACTIVA 2017.xlsx')
+current_accounts_excelreader = exceladapter.ExcelReader('inputs/CUENTAS CORRIENTES.xlsx')
 
 cheques_sheet = actual_excelreader.get_sheet(CHEQUES_SHEET_NAME)
 caja_sheet = actual_excelreader.get_sheet(CAJA_SHEET_NAME)
@@ -52,17 +52,16 @@ for rowNum in range(3, cheques_sheet.max_row):  # skip the first row
     check['category'] = category
     check['account'] = account
     check['income'] = ""
-    check['expense'] = to_google_num(providers_amount)
+    check['expense'] = translators.to_google_num(providers_amount)
 
     if date_value and date_value > datetime.now():
         check['flow'] = ESTIMATED_FLOW
         check['flexibility'] = INFLEXIBLE
-        print(check)
         projected_flows.append(check)
     else:
         actual_flows.append(check)
 
-table_unpacker = TableUnpacker(caja_sheet)
+table_unpacker = tableextraction.TableUnpacker(caja_sheet)
 
 for rowNum in range(3, caja_sheet.max_row):
     cash_flow = {}
@@ -90,7 +89,7 @@ for rowNum in range(3, caja_sheet.max_row):
 
     date_value = row_unpacker.get_value_at(1)
 
-    cash_flow['date'], cash_flow['week'], cash_flow['year'] = unpack_dates(date_value)
+    cash_flow['date'], cash_flow['week'], cash_flow['year'] = translators.unpack_dates(date_value)
 
     cash_flow['flow'] = ACTUAL_FLOW
     cash_flow['flexibility'] = ""
@@ -102,14 +101,14 @@ for rowNum in range(3, caja_sheet.max_row):
     cash_flow['category'] = category
     cash_flow['account'] = account
     cash_flow['income'] = ""
-    cash_flow['expense'] = to_google_num(expense) if expense else ""
-    cash_flow['income'] = to_google_num(income) if income else ""
+    cash_flow['expense'] = translators.to_google_num(expense) if expense else ""
+    cash_flow['income'] = translators.to_google_num(income) if income else ""
 
     # print(cash_flow)
 
     actual_flows.append(cash_flow)
 
-credicoop_unpacker = TableUnpacker(credicoop_sheet)
+credicoop_unpacker = tableextraction.TableUnpacker(credicoop_sheet)
 
 for rowNum in range(3, credicoop_sheet.max_row):
     cash_flow = {}
@@ -147,7 +146,7 @@ for rowNum in range(3, credicoop_sheet.max_row):
     if check_clearing_date_value:
         date_value = check_clearing_date_value
 
-    cash_flow['date'], cash_flow['week'], cash_flow['year'] = unpack_dates(date_value)
+    cash_flow['date'], cash_flow['week'], cash_flow['year'] = translators.unpack_dates(date_value)
 
     cash_flow['flow'] = ACTUAL_FLOW
     cash_flow['flexibility'] = ""
@@ -157,8 +156,8 @@ for rowNum in range(3, credicoop_sheet.max_row):
     cash_flow['category'] = category
     cash_flow['account'] = account
     cash_flow['income'] = ""
-    cash_flow['expense'] = to_google_num(expense) if expense else ""
-    cash_flow['income'] = to_google_num(income) if income else ""
+    cash_flow['expense'] = translators.to_google_num(expense) if expense else ""
+    cash_flow['income'] = translators.to_google_num(income) if income else ""
 
     # print(cash_flow)
 
@@ -166,85 +165,97 @@ for rowNum in range(3, credicoop_sheet.max_row):
 
 # crear excel nuevo
 filename = 'outputs/consolidado_real_' + time.strftime("%Y%m%d-%H%M%S") + '.xlsx'
-actual_excelwriter = ExcelWriter(filename)
+actual_excelwriter = exceladapter.ExcelWriter(filename)
 new_sheet = actual_excelwriter.create_sheet('Consolidado')
 
-new_sheet["A1"] = "Semana"
-new_sheet["B1"] = "Año"
-new_sheet["C1"] = "Flujo"
-new_sheet["D1"] = "Tipo"
-new_sheet["E1"] = "Rubro"
-new_sheet["F1"] = "Fecha"
-new_sheet["G1"] = "Cuenta"
-new_sheet["H1"] = "Detalle"
-new_sheet["I1"] = "Ingreso"
-new_sheet["J1"] = "Egreso"
+actual_flow_builder = excelbuilder.BasicBuilder(new_sheet, actual_flows)
 
-for index, flow in enumerate(actual_flows):
-    row_num = str(index + 2)
+actual_flow_builder.add_header("A", "Semana")
+actual_flow_builder.add_header("B", "Año")
+actual_flow_builder.add_header("C", "Flujo")
+actual_flow_builder.add_header("D", "Tipo")
+actual_flow_builder.add_header("E", "Rubro")
+actual_flow_builder.add_header("F", "Fecha")
+actual_flow_builder.add_header("G", "Cuenta")
+actual_flow_builder.add_header("H", "Detalle")
+actual_flow_builder.add_header("I", "Ingreso")
+actual_flow_builder.add_header("J", "Egreso")
 
-    new_sheet["A" + row_num] = flow['week']
-    new_sheet["B" + row_num] = flow['year']
-    new_sheet["C" + row_num] = flow['flow']
-    new_sheet["D" + row_num] = flow['type']
-    new_sheet["E" + row_num] = flow['category']
-    new_sheet["F" + row_num] = flow['date']
-    new_sheet["G" + row_num] = flow['account']
-    new_sheet["H" + row_num] = flow['details']
-    new_sheet["I" + row_num] = flow['income']
-    new_sheet["J" + row_num] = flow['expense']
+actual_flow_builder.map_column("A", "week")
+actual_flow_builder.map_column("B", "year")
+actual_flow_builder.map_column("C", "flow")
+actual_flow_builder.map_column("D", "type")
+actual_flow_builder.map_column("E", "category")
+actual_flow_builder.map_column("F", "date")
+actual_flow_builder.map_column("G", "account")
+actual_flow_builder.map_column("H", "details")
+actual_flow_builder.map_column("I", "income")
+actual_flow_builder.map_column("J", "expense")
 
+actual_flow_builder.build()
 actual_excelwriter.save()
 
 # crear excel de proyecciones
 projected_flow_filename = 'outputs/proyecciones_' + time.strftime("%Y%m%d-%H%M%S") + '.xlsx'
-projected_excelwriter = ExcelWriter(projected_flow_filename)
+projected_excelwriter = exceladapter.ExcelWriter(projected_flow_filename)
 projected_sheet = projected_excelwriter.create_sheet('Proyectado')
 
-projected_sheet["A1"] = "Semana"
-projected_sheet["B1"] = "Año"
-projected_sheet["C1"] = "Flujo"
-projected_sheet["D1"] = "Tipo"
-projected_sheet["E1"] = "Rubro"
-projected_sheet["F1"] = "Fecha"
-projected_sheet["G1"] = "Cuenta"
-projected_sheet["H1"] = "Detalle"
-projected_sheet["I1"] = "Ingreso"
-projected_sheet["J1"] = "Egreso"
+projected_flow_builder = excelbuilder.BasicBuilder(projected_sheet, projected_flows)
 
-for index, projected_flow in enumerate(projected_flows):
-    row_num = str(index + 2)
+projected_flow_builder.add_header("A", "Semana")
+projected_flow_builder.add_header("B", "Año")
+projected_flow_builder.add_header("C", "Flujo")
+projected_flow_builder.add_header("D", "Tipo")
+projected_flow_builder.add_header("E", "Rubro")
+projected_flow_builder.add_header("F", "Fecha")
+projected_flow_builder.add_header("G", "Cuenta")
+projected_flow_builder.add_header("H", "Detalle")
+projected_flow_builder.add_header("I", "Ingreso")
+projected_flow_builder.add_header("J", "Egreso")
 
-    projected_sheet["A" + row_num] = flow['week']
-    projected_sheet["B" + row_num] = flow['year']
-    projected_sheet["C" + row_num] = flow['flow']
-    projected_sheet["D" + row_num] = flow['type']
-    projected_sheet["E" + row_num] = flow['category']
-    projected_sheet["F" + row_num] = flow['date']
-    projected_sheet["G" + row_num] = flow['account']
-    projected_sheet["H" + row_num] = flow['details']
-    projected_sheet["I" + row_num] = flow['income']
-    projected_sheet["J" + row_num] = flow['expense']
+projected_flow_builder.map_column("A", "week")
+projected_flow_builder.map_column("B", "year")
+projected_flow_builder.map_column("C", "flow")
+projected_flow_builder.map_column("D", "type")
+projected_flow_builder.map_column("E", "category")
+projected_flow_builder.map_column("F", "date")
+projected_flow_builder.map_column("G", "account")
+projected_flow_builder.map_column("H", "details")
+projected_flow_builder.map_column("I", "income")
+projected_flow_builder.map_column("J", "expense")
 
+projected_flow_builder.build()
 projected_excelwriter.save()
 
 # crear excel de categorías faltantes
 
 missing_categories_filename = 'outputs/rubros_faltantes_' + time.strftime("%Y%m%d-%H%M%S") + '.xlsx'
-missing_categories_excelwriter = ExcelWriter(missing_categories_filename)
+missing_categories_excelwriter = exceladapter.ExcelWriter(missing_categories_filename)
 new_categories_sheet = missing_categories_excelwriter.create_sheet('Rubros Faltantes')
 
-new_categories_sheet["A1"] = "CuentaDetalle"
-new_categories_sheet["B1"] = "Rubro"
-new_categories_sheet["C1"] = "Cuenta"
-new_categories_sheet["D1"] = "Detalle"
+missing_categories_builder = excelbuilder.BasicBuilder(new_categories_sheet, new_categories)
 
-for index, missing_category_str in enumerate(new_categories):
-    row_num = str(index + 2)
-    missing_category = json.loads(missing_category_str)
+missing_categories_builder.add_header("A", "CuentaDetalle")
+missing_categories_builder.add_header("B", "Rubro")
+missing_categories_builder.add_header("C", "Cuenta")
+missing_categories_builder.add_header("D", "Detalle")
 
-    new_categories_sheet["A" + row_num] = missing_category['account'] + '-' + missing_category['details']
-    new_categories_sheet["C" + row_num] = missing_category['account']
-    new_categories_sheet["D" + row_num] = missing_category['details']
+
+def from_json_mapper(item_str, key):
+    return json.loads(item_str)[key]
+
+
+def account_details_maper(item_str, _):
+    item = json.loads(item_str)
+
+    result = ("%s-%s" % (item['account'], item['details']))
+    return result
+
+
+missing_categories_builder.map_column("A", "account", account_details_maper)
+missing_categories_builder.map_column("C", "account", from_json_mapper)
+missing_categories_builder.map_column("D", "details", from_json_mapper)
+
+missing_categories_builder.build()
 
 missing_categories_excelwriter.save()
