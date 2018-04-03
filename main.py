@@ -14,12 +14,13 @@ import excelbuilder
 # abrir
 
 categories_reader = categoriesreader.CategoriesReader()
-actual_excelreader = exceladapter.excelreader.ExcelReader('inputs/PLANILLA CONTABILIDAD ACTIVA 2017.xlsx')
+actual_excelreader = exceladapter.excelreader.ExcelReader('inputs/PLANILLA CONTABILIDAD ACTIVA 2018 03.29.xlsx')
 current_accounts_excelreader = exceladapter.ExcelReader('inputs/CUENTAS CORRIENTES.xlsx')
 
 cheques_sheet = actual_excelreader.get_sheet(CHEQUES_SHEET_NAME)
 caja_sheet = actual_excelreader.get_sheet(CAJA_SHEET_NAME)
 credicoop_sheet = actual_excelreader.get_sheet(CREDICOOP_SHEET_NAME)
+estimacion_sheet = actual_excelreader.get_sheet(ESTIMACION_SHEET_NAME)
 
 cuentas_corrientes_sheet = current_accounts_excelreader.get_sheet(CUENTAS_CORRIENTES_SHEET_NAME)
 
@@ -70,6 +71,10 @@ for rowNum in range(3, caja_sheet.max_row):
 
     account = row_unpacker.get_value_at(3)
     details = row_unpacker.get_value_at(2)
+    date_value = row_unpacker.get_value_at(1)
+
+    if not date_value:
+        break
 
     if details == CARGAS_SOCIALES:
         account = SUELDOS
@@ -87,8 +92,6 @@ for rowNum in range(3, caja_sheet.max_row):
     if category == NEW_CATEGORY:
         new_categories.add('{"account": "%s", "details": "%s"}' % (account, details))
 
-    date_value = row_unpacker.get_value_at(1)
-
     cash_flow['date'], cash_flow['week'], cash_flow['year'] = translators.unpack_dates(date_value)
 
     cash_flow['flow'] = ACTUAL_FLOW
@@ -105,6 +108,8 @@ for rowNum in range(3, caja_sheet.max_row):
     cash_flow['income'] = translators.to_google_num(income) if income else ""
 
     # print(cash_flow)
+
+
 
     actual_flows.append(cash_flow)
 
@@ -125,6 +130,9 @@ for rowNum in range(3, credicoop_sheet.max_row):
         account = PRESTAMOS_BANCARIOS
 
     if details == ANNULED:
+        continue
+
+    if not details:
         continue
 
     if account == T_E_CUENTAS_PROPIAS and details == "FELSIM CAJA":
@@ -160,8 +168,75 @@ for rowNum in range(3, credicoop_sheet.max_row):
     cash_flow['income'] = translators.to_google_num(income) if income else ""
 
     # print(cash_flow)
+    if date_value and date_value > datetime.now():
+        cash_flow['flow'] = ESTIMATED_FLOW
+        cash_flow['flexibility'] = INFLEXIBLE
+        projected_flows.append(cash_flow)
+    else:
+        actual_flows.append(cash_flow)
 
-    actual_flows.append(cash_flow)
+# generar de hoja planificada (negociable - antes en credicoop abajo de los renglones normales)
+# FLEXIBLE
+
+estimacion_unpacker = tableextraction.TableUnpacker(estimacion_sheet)
+
+for row_num in range(2, estimacion_sheet.max_row):
+    cash_flow = {}
+
+    row_unpacker = estimacion_unpacker.get_row_unpacker(row_num)
+
+    details = row_unpacker.get_value_at(6)
+    account = row_unpacker.get_value_at(7)
+
+    if details == CARGAS_SOCIALES:
+        account = SUELDOS
+
+    if details in BANKS:
+        account = PRESTAMOS_BANCARIOS
+
+    if details == ANNULED:
+        continue
+
+    if not details:
+        continue
+
+    if account == T_E_CUENTAS_PROPIAS and details == "FELSIM CAJA":
+        continue
+
+    if details.startswith(MORATORIA_AFIP):
+        account = MORATORIAS
+
+    expense = row_unpacker.get_value_at(9)
+    income = row_unpacker.get_value_at(10)
+    category = categories_reader.get_category_from_account_and_details(account, details)
+
+    if category == NEW_CATEGORY:
+        new_categories.add('{"account": "%s", "details": "%s"}' % (account, details))
+
+    date_value = row_unpacker.get_value_at(4)
+
+    cash_flow['date'], cash_flow['week'], cash_flow['year'] = translators.unpack_dates(date_value)
+
+    cash_flow['flow'] = ESTIMATED_FLOW
+    cash_flow['flexibility'] = FLEXIBLE
+    cash_flow['type'] = ESTIMADO_TYPE
+    cash_flow['details'] = details
+
+    cash_flow['category'] = category
+    cash_flow['account'] = account
+    cash_flow['income'] = ""
+    cash_flow['expense'] = translators.to_google_num(expense) if expense else ""
+    cash_flow['income'] = translators.to_google_num(income) if income else ""
+
+    projected_flows.append(cash_flow)
+
+# CUENTA CORRIENTE
+
+# buscar cliente en rubros, de detalle = cliente se obtiene cuenta y rubro
+# todos son PROYECTADO e IMPOSTERGABLE
+
+# proyectar las faltantes hasta 13 como promedio del real
+
 
 # crear excel nuevo
 filename = 'outputs/consolidado_real_' + time.strftime("%Y%m%d-%H%M%S") + '.xlsx'
@@ -173,24 +248,26 @@ actual_flow_builder = excelbuilder.BasicBuilder(new_sheet, actual_flows)
 actual_flow_builder.add_header("A", "Semana")
 actual_flow_builder.add_header("B", "Año")
 actual_flow_builder.add_header("C", "Flujo")
-actual_flow_builder.add_header("D", "Tipo")
-actual_flow_builder.add_header("E", "Rubro")
-actual_flow_builder.add_header("F", "Fecha")
-actual_flow_builder.add_header("G", "Cuenta")
-actual_flow_builder.add_header("H", "Detalle")
-actual_flow_builder.add_header("I", "Ingreso")
-actual_flow_builder.add_header("J", "Egreso")
+actual_flow_builder.add_header("D", "Flexibilidad")
+actual_flow_builder.add_header("E", "Tipo")
+actual_flow_builder.add_header("F", "Rubro")
+actual_flow_builder.add_header("G", "Fecha")
+actual_flow_builder.add_header("H", "Cuenta")
+actual_flow_builder.add_header("I", "Detalle")
+actual_flow_builder.add_header("J", "Ingreso")
+actual_flow_builder.add_header("K", "Egreso")
 
 actual_flow_builder.map_column("A", "week")
 actual_flow_builder.map_column("B", "year")
 actual_flow_builder.map_column("C", "flow")
-actual_flow_builder.map_column("D", "type")
-actual_flow_builder.map_column("E", "category")
-actual_flow_builder.map_column("F", "date")
-actual_flow_builder.map_column("G", "account")
-actual_flow_builder.map_column("H", "details")
-actual_flow_builder.map_column("I", "income")
-actual_flow_builder.map_column("J", "expense")
+actual_flow_builder.map_column("D", "flexibility")
+actual_flow_builder.map_column("E", "type")
+actual_flow_builder.map_column("F", "category")
+actual_flow_builder.map_column("G", "date")
+actual_flow_builder.map_column("H", "account")
+actual_flow_builder.map_column("I", "details")
+actual_flow_builder.map_column("J", "income")
+actual_flow_builder.map_column("K", "expense")
 
 actual_flow_builder.build()
 actual_excelwriter.save()
@@ -205,24 +282,26 @@ projected_flow_builder = excelbuilder.BasicBuilder(projected_sheet, projected_fl
 projected_flow_builder.add_header("A", "Semana")
 projected_flow_builder.add_header("B", "Año")
 projected_flow_builder.add_header("C", "Flujo")
-projected_flow_builder.add_header("D", "Tipo")
-projected_flow_builder.add_header("E", "Rubro")
-projected_flow_builder.add_header("F", "Fecha")
-projected_flow_builder.add_header("G", "Cuenta")
-projected_flow_builder.add_header("H", "Detalle")
-projected_flow_builder.add_header("I", "Ingreso")
-projected_flow_builder.add_header("J", "Egreso")
+projected_flow_builder.add_header("D", "Flexibilidad")
+projected_flow_builder.add_header("E", "Tipo")
+projected_flow_builder.add_header("F", "Rubro")
+projected_flow_builder.add_header("G", "Fecha")
+projected_flow_builder.add_header("H", "Cuenta")
+projected_flow_builder.add_header("I", "Detalle")
+projected_flow_builder.add_header("J", "Ingreso")
+projected_flow_builder.add_header("K", "Egreso")
 
 projected_flow_builder.map_column("A", "week")
 projected_flow_builder.map_column("B", "year")
 projected_flow_builder.map_column("C", "flow")
-projected_flow_builder.map_column("D", "type")
-projected_flow_builder.map_column("E", "category")
-projected_flow_builder.map_column("F", "date")
-projected_flow_builder.map_column("G", "account")
-projected_flow_builder.map_column("H", "details")
-projected_flow_builder.map_column("I", "income")
-projected_flow_builder.map_column("J", "expense")
+projected_flow_builder.map_column("D", "flexibility")
+projected_flow_builder.map_column("E", "type")
+projected_flow_builder.map_column("F", "category")
+projected_flow_builder.map_column("G", "date")
+projected_flow_builder.map_column("H", "account")
+projected_flow_builder.map_column("I", "details")
+projected_flow_builder.map_column("J", "income")
+projected_flow_builder.map_column("K", "expense")
 
 projected_flow_builder.build()
 projected_excelwriter.save()
@@ -240,7 +319,6 @@ missing_categories_builder.add_header("B", "Rubro")
 missing_categories_builder.add_header("C", "Cuenta")
 missing_categories_builder.add_header("D", "Detalle")
 
-
 def from_json_mapper(item_str, key):
     return json.loads(item_str)[key]
 
@@ -250,7 +328,6 @@ def account_details_maper(item_str, _):
 
     result = ("%s-%s" % (item['account'], item['details']))
     return result
-
 
 missing_categories_builder.map_column("A", "account", account_details_maper)
 missing_categories_builder.map_column("C", "account", from_json_mapper)
