@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(name='felsimetl',
       version='0.1',
@@ -7,5 +7,8 @@ setup(name='felsimetl',
       author='Federico Gosman',
       author_email='federico@equipogsm.com',
       license='MIT',
-      packages=['felsimetl'],
+      packages=find_packages(),
+      install_requires=[
+            'openpyxl'
+      ],
       zip_safe=False)
