@@ -60,3 +60,10 @@
 # flexibilidad: negociable
 # metodología (hasta ahora): promedio de las últimas 4 semanas impostergables - ver con Marina -
 # tomar info de proyecciones
+
+
+# initialize if not empty
+
+# https://stackoverflow.com/questions/7338501/python-assign-value-if-none-exists
+# var1 = var1 or 4
+

@@ -10,3 +10,7 @@ class TableUnpacker:
 
     def get_value_at(self, row, col):
         return self.sheet.cell(row=self.rowNum, column=col).value
+
+    def read_rows(self, initial_row):
+        for row_num in range(initial_row, self.sheet.max_row):
+            yield self.get_row_unpacker(row_num)
