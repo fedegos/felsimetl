@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(name='felsimetl',
-      version='0.1.12',
+      version='0.1.13',
       description='ETL for Felsim',
       url='http://github.com/fedegos/felsimetl',
       author='Federico Gosman',
@@ -14,6 +14,6 @@ setup(name='felsimetl',
           ]
       },
       install_requires=[
-            'openpyxl'
+            'openpyxl==2.4.7'
       ],
       zip_safe=False)
