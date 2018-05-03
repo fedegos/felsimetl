@@ -15,8 +15,8 @@ import excelbuilder
 # abrir
 
 categories_reader = categoriesreader.CategoriesReader()
-actual_excelreader = exceladapter.excelreader.ExcelReader('inputs/PLANILLA CONTABILIDAD ACTIVA 2018 03.29.xlsx')
-current_accounts_excelreader = exceladapter.ExcelReader('inputs/CUENTAS CORRIENTES ccGSM al 2018-04-03.xlsx')
+actual_excelreader = exceladapter.excelreader.ExcelReader('inputs/PLANILLA CONTABILIDAD ACTIVA 2018 GSM.xlsx')
+current_accounts_excelreader = exceladapter.ExcelReader('inputs/CUENTAS CORRIENTES.xlsx')
 
 cheques_sheet = actual_excelreader.get_sheet(CHEQUES_SHEET_NAME)
 caja_sheet = actual_excelreader.get_sheet(CAJA_SHEET_NAME)
