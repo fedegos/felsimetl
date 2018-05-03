@@ -3,8 +3,9 @@ import openpyxl
 
 
 class CategoriesReader:
-    def __init__(self):
-        rubros_wb = openpyxl.load_workbook(filename='inputs/RUBROS.xlsx', data_only=True)
+    def __init__(self, filename):
+        # sacar filename de acá
+        rubros_wb = openpyxl.load_workbook(filename=filename, data_only=True)
         rubros_sheet = rubros_wb.get_sheet_by_name(RUBROS_SHEET_NAME)
 
         self.rubros = {}

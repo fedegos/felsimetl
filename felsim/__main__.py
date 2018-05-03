@@ -3,8 +3,12 @@ import time
 import json
 import sys
 from datetime import datetime, timedelta
+# from felsim.constants import *
 from constants import *
+
 from functools import reduce
+
+import os
 
 import tableextraction
 import categoriesreader
@@ -19,9 +23,12 @@ def main(args=None):
     if args is None:
         args = sys.argv[1:]
 
-    categories_reader = categoriesreader.CategoriesReader()
-    actual_excelreader = exceladapter.excelreader.ExcelReader('inputs/PLANILLA CONTABILIDAD ACTIVA 2018 GSM.xlsx')
-    current_accounts_excelreader = exceladapter.ExcelReader('inputs/CUENTAS CORRIENTES.xlsx')
+    cwd = os.getcwd()
+    # print(cwd)
+
+    categories_reader = categoriesreader.CategoriesReader('../inputs/RUBROS.xlsx')
+    actual_excelreader = exceladapter.excelreader.ExcelReader('../inputs/PLANILLA CONTABILIDAD ACTIVA 2018 GSM.xlsx')
+    current_accounts_excelreader = exceladapter.ExcelReader('../inputs/CUENTAS CORRIENTES.xlsx')
 
     cheques_sheet = actual_excelreader.get_sheet(CHEQUES_SHEET_NAME)
     caja_sheet = actual_excelreader.get_sheet(CAJA_SHEET_NAME)
@@ -329,7 +336,7 @@ def main(args=None):
             projected_flows.append(cash_flow)
 
     # crear excel nuevo
-    filename = 'outputs/consolidado_real_' + time.strftime("%Y%m%d-%H%M%S") + '.xlsx'
+    filename = '../outputs/consolidado_real_' + time.strftime("%Y%m%d-%H%M%S") + '.xlsx'
     actual_excelwriter = exceladapter.ExcelWriter(filename)
     new_sheet = actual_excelwriter.create_sheet('Consolidado')
 
@@ -363,7 +370,7 @@ def main(args=None):
     actual_excelwriter.save()
 
     # crear excel de proyecciones
-    projected_flow_filename = 'outputs/proyecciones_' + time.strftime("%Y%m%d-%H%M%S") + '.xlsx'
+    projected_flow_filename = '../outputs/proyecciones_' + time.strftime("%Y%m%d-%H%M%S") + '.xlsx'
     projected_excelwriter = exceladapter.ExcelWriter(projected_flow_filename)
     projected_sheet = projected_excelwriter.create_sheet('Proyectado')
 
@@ -398,7 +405,7 @@ def main(args=None):
 
     # crear excel de categorías faltantes
 
-    missing_categories_filename = 'outputs/rubros_faltantes_' + time.strftime("%Y%m%d-%H%M%S") + '.xlsx'
+    missing_categories_filename = '../outputs/rubros_faltantes_' + time.strftime("%Y%m%d-%H%M%S") + '.xlsx'
     missing_categories_excelwriter = exceladapter.ExcelWriter(missing_categories_filename)
     new_categories_sheet = missing_categories_excelwriter.create_sheet('Rubros Faltantes')
 
