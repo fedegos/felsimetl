@@ -3,8 +3,7 @@ import time
 import json
 import sys
 from datetime import datetime, timedelta
-# from felsim.constants import *
-from constants import *
+import argparse
 
 from functools import reduce
 
@@ -17,21 +16,49 @@ import translators
 
 import excelbuilder
 
+from constants import *
+
 def main(args=None):
-    # abrir
     """The main routine."""
     if args is None:
         args = sys.argv[1:]
 
     cwd = os.getcwd().replace('\\', '/')
-    # cwd = os.path.abspath(os.path.dirname(__file__))
-    # cwd = 'C:/Users/Federico/PycharmProjects/felsim'
-    print(cwd)
 
-    actual_filename = cwd + '/inputs/PLANILLA CONTABILIDAD ACTIVA 2018 GSM.xlsx'
-    current_accounts_filename = cwd + '/inputs/CUENTAS CORRIENTES.xlsx'
+    parser = argparse.ArgumentParser(description='Script para procesar planillas de Felsim')
+    parser.add_argument("--inputs", "-i", help="Permite definir la carpeta de inputs", default="inputs")
+    parser.add_argument("--outputs", "-o", help="Permite definir la carpeta de outputs", default="outputs")
 
-    categories_reader = categoriesreader.CategoriesReader(cwd + '/inputs/RUBROS.xlsx')
+    params = parser.parse_args(args)
+
+    inputs_path = "%s/%s/" % (cwd, params.inputs)
+    outputs_path = "%s/%s/" % (cwd, params.outputs)
+
+    actual_filename = inputs_path + 'PLANILLA CONTABILIDAD ACTIVA 2018 GSM.xlsx'
+    current_accounts_filename = inputs_path + 'CUENTAS CORRIENTES.xlsx'
+    categories_filename = inputs_path + 'RUBROS.xlsx'
+
+    if not os.path.isdir(inputs_path):
+        print("La carpeta %s no existe." % inputs_path)
+        return
+
+    if not os.path.isdir(outputs_path):
+        print("La carpeta %s no existe." % outputs_path)
+        return
+
+    if not os.path.isfile(actual_filename):
+        print("El archivo %s no existe." % actual_filename)
+        return
+
+    if not os.path.isfile(current_accounts_filename):
+        print("El archivo %s no existe." % current_accounts_filename)
+        return
+
+    if not os.path.isfile(categories_filename):
+        print("El archivo %s no existe." % categories_filename)
+        return
+
+    categories_reader = categoriesreader.CategoriesReader(categories_filename)
     actual_excelreader = exceladapter.excelreader.ExcelReader(actual_filename)
     current_accounts_excelreader = exceladapter.ExcelReader(current_accounts_filename)
 
@@ -341,7 +368,7 @@ def main(args=None):
             projected_flows.append(cash_flow)
 
     # crear excel nuevo
-    filename = cwd + '/outputs/consolidado_real_' + time.strftime("%Y%m%d-%H%M%S") + '.xlsx'
+    filename = outputs_path + 'consolidado_real_' + time.strftime("%Y%m%d-%H%M%S") + '.xlsx'
     actual_excelwriter = exceladapter.ExcelWriter(filename)
     new_sheet = actual_excelwriter.create_sheet('Consolidado')
 
@@ -375,7 +402,7 @@ def main(args=None):
     actual_excelwriter.save()
 
     # crear excel de proyecciones
-    projected_flow_filename = cwd + '/outputs/proyecciones_' + time.strftime("%Y%m%d-%H%M%S") + '.xlsx'
+    projected_flow_filename = outputs_path + 'proyecciones_' + time.strftime("%Y%m%d-%H%M%S") + '.xlsx'
     projected_excelwriter = exceladapter.ExcelWriter(projected_flow_filename)
     projected_sheet = projected_excelwriter.create_sheet('Proyectado')
 
@@ -410,7 +437,7 @@ def main(args=None):
 
     # crear excel de categorías faltantes
 
-    missing_categories_filename = cwd + '/outputs/rubros_faltantes_' + time.strftime("%Y%m%d-%H%M%S") + '.xlsx'
+    missing_categories_filename = outputs_path + 'rubros_faltantes_' + time.strftime("%Y%m%d-%H%M%S") + '.xlsx'
     missing_categories_excelwriter = exceladapter.ExcelWriter(missing_categories_filename)
     new_categories_sheet = missing_categories_excelwriter.create_sheet('Rubros Faltantes')
 
