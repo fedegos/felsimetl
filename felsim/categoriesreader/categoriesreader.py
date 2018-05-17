@@ -1,4 +1,4 @@
-from constants import *
+from felsim.constants import *
 import openpyxl
 
 
@@ -10,7 +10,7 @@ class CategoriesReader:
 
         self.rubros = {}
 
-        for rowNum in range(2, rubros_sheet.max_row):  # skip the first row
+        for rowNum in range(2, rubros_sheet.max_row + 1):  # skip the first row
             item = {}
             key = rubros_sheet.cell(row=rowNum, column=1).value
             item['category'] = rubros_sheet.cell(row=rowNum, column=2).value
@@ -18,6 +18,7 @@ class CategoriesReader:
             item['details'] = rubros_sheet.cell(row=rowNum, column=4).value
 
             self.rubros[key] = item
+
 
     def get_category_from_details(self, details):
         account = ""

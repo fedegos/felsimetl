@@ -9,14 +9,23 @@ from functools import reduce
 
 import os
 
-import tableextraction
-import categoriesreader
-import exceladapter
-import translators
+import felsim.tableextraction as tableextraction
+import felsim.categoriesreader as categoriesreader
+import felsim.exceladapter as exceladapter
+import felsim.translators as translators
 
-import excelbuilder
+import felsim.excelbuilder as excelbuilder
 
-from constants import *
+from felsim.constants import *
+
+
+def get_parser():
+    parser = argparse.ArgumentParser(description='Script para procesar planillas de Felsim')
+    parser.add_argument("--inputs", "-i", help="Permite definir la carpeta de inputs. Si no se indica, el programa busca la carpeta inputs.", default="inputs")
+    parser.add_argument("--outputs", "-o", help="Permite definir la carpeta de outputs. Si no se indica, el programa busca la carpeta outputs.", default="outputs")
+
+    return parser
+
 
 def main(args=None):
     """The main routine."""
@@ -25,10 +34,7 @@ def main(args=None):
 
     cwd = os.getcwd().replace('\\', '/')
 
-    parser = argparse.ArgumentParser(description='Script para procesar planillas de Felsim')
-    parser.add_argument("--inputs", "-i", help="Permite definir la carpeta de inputs", default="inputs")
-    parser.add_argument("--outputs", "-o", help="Permite definir la carpeta de outputs", default="outputs")
-
+    parser = get_parser()
     params = parser.parse_args(args)
 
     inputs_path = "%s/%s/" % (cwd, params.inputs)
@@ -75,7 +81,7 @@ def main(args=None):
     projected_flows = []
     new_categories = set()
 
-    for rowNum in range(3, cheques_sheet.max_row):  # skip the first row
+    for rowNum in range(3, cheques_sheet.max_row + 1):  # skip the first row
         providers_amount = cheques_sheet.cell(row=rowNum, column=6).value
 
         if not providers_amount:
@@ -109,7 +115,7 @@ def main(args=None):
 
     table_unpacker = tableextraction.TableUnpacker(caja_sheet)
 
-    for rowNum in range(3, caja_sheet.max_row):
+    for rowNum in range(3, caja_sheet.max_row + 1):
         cash_flow = {}
 
         row_unpacker = table_unpacker.get_row_unpacker(rowNum)
@@ -152,15 +158,11 @@ def main(args=None):
         cash_flow['expense'] = translators.to_google_num(expense) if expense else ""
         cash_flow['income'] = translators.to_google_num(income) if income else ""
 
-        # print(cash_flow)
-
-
-
         actual_flows.append(cash_flow)
 
     credicoop_unpacker = tableextraction.TableUnpacker(credicoop_sheet)
 
-    for rowNum in range(3, credicoop_sheet.max_row):
+    for rowNum in range(3, credicoop_sheet.max_row + 1):
         cash_flow = {}
 
         row_unpacker = credicoop_unpacker.get_row_unpacker(rowNum)
@@ -225,7 +227,7 @@ def main(args=None):
 
     estimacion_unpacker = tableextraction.TableUnpacker(estimacion_sheet)
 
-    for row_num in range(2, estimacion_sheet.max_row):
+    for row_num in range(2, estimacion_sheet.max_row + 1):
         cash_flow = {}
 
         row_unpacker = estimacion_unpacker.get_row_unpacker(row_num)
@@ -465,6 +467,8 @@ def main(args=None):
     missing_categories_builder.build()
 
     missing_categories_excelwriter.save()
+
+    print("Los archivos fueron generados con éxito en la siguiente ubicación:", outputs_path.replace("/", "\\"))
 
 if __name__ == "__main__":
     main()
