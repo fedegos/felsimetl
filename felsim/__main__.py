@@ -1,4 +1,3 @@
-import openpyxl
 import time
 import json
 import sys
@@ -19,10 +18,23 @@ import felsim.excelbuilder as excelbuilder
 from felsim.constants import *
 
 
+def valid_date(s):
+    try:
+        return datetime.strptime(s, "%Y-%m-%d")
+    except ValueError:
+        msg = "No es una fecha válida: '{0}'.".format(s)
+        raise argparse.ArgumentTypeError(msg)
+
 def get_parser():
     parser = argparse.ArgumentParser(description='Script para procesar planillas de Felsim')
     parser.add_argument("--inputs", "-i", help="Permite definir la carpeta de inputs. Si no se indica, el programa busca la carpeta inputs.", default="inputs")
     parser.add_argument("--outputs", "-o", help="Permite definir la carpeta de outputs. Si no se indica, el programa busca la carpeta outputs.", default="outputs")
+    parser.add_argument(
+        "--date", "-d",
+        help="Define la fecha de proyección. Formato: AAAA-MM-DD.",
+        required=True,
+        type=valid_date
+    )
 
     return parser
 
@@ -39,6 +51,9 @@ def main(args=None):
 
     inputs_path = "%s/%s/" % (cwd, params.inputs)
     outputs_path = "%s/%s/" % (cwd, params.outputs)
+    projected_date = params.date
+
+    print("Fecha de proyección: ", projected_date.strftime("%Y-%m-%d"))
 
     actual_filename = inputs_path + 'PLANILLA CONTABILIDAD ACTIVA 2018 GSM.xlsx'
     current_accounts_filename = inputs_path + 'CUENTAS CORRIENTES.xlsx'
@@ -106,9 +121,10 @@ def main(args=None):
         check['income'] = ""
         check['expense'] = translators.to_google_num(providers_amount)
 
-        if date_value and date_value > datetime.now():
+        if date_value and date_value > projected_date:
             check['flow'] = ESTIMATED_FLOW
             check['flexibility'] = INFLEXIBLE
+            check['projected_date'] = projected_date
             projected_flows.append(check)
         else:
             actual_flows.append(check)
@@ -215,9 +231,10 @@ def main(args=None):
         cash_flow['income'] = translators.to_google_num(income) if income else ""
 
         # print(cash_flow)
-        if date_value and date_value > datetime.now():
+        if date_value and date_value > projected_date:
             cash_flow['flow'] = ESTIMATED_FLOW
             cash_flow['flexibility'] = INFLEXIBLE
+            cash_flow['projected_date'] = projected_date
             projected_flows.append(cash_flow)
         else:
             actual_flows.append(cash_flow)
@@ -274,6 +291,7 @@ def main(args=None):
         cash_flow['expense'] = translators.to_google_num(expense) if expense else ""
         cash_flow['income'] = translators.to_google_num(income) if income else ""
 
+        cash_flow['projected_date'] = projected_date
         projected_flows.append(cash_flow)
 
     # CUENTA CORRIENTE
@@ -281,7 +299,7 @@ def main(args=None):
     sales_by_customer = {}
     weeks_projected_by_customer = {}
 
-    current_date = datetime.now()
+    current_date = projected_date
     current_date_at_zero = datetime(current_date.year, current_date.month, current_date.day)
     _, current_week, current_year = translators.unpack_dates(current_date)
 
@@ -306,7 +324,7 @@ def main(args=None):
         if not date_value:
             continue
 
-        if date_value <= datetime.now():
+        if date_value <= projected_date:
             continue
 
         category, account = categories_reader.get_category_from_details(details)
@@ -340,6 +358,7 @@ def main(args=None):
         cash_flow['expense'] = ''
         cash_flow['income'] = translators.to_google_num(income) if income else ""
 
+        cash_flow['projected_date'] = projected_date
         projected_flows.append(cash_flow)
 
     for customer, customer_sales in sales_by_customer.items():
@@ -351,11 +370,11 @@ def main(args=None):
         for week in range(project_since, 14):
             cash_flow = {}
 
-            projected_date = add_weeks(current_date_at_zero, week)
+            projected_sales_date = add_weeks(current_date_at_zero, week)
 
             category, account = categories_reader.get_category_from_details(customer)
 
-            cash_flow['date'], cash_flow['week'], cash_flow['year'] = translators.unpack_dates(projected_date)
+            cash_flow['date'], cash_flow['week'], cash_flow['year'] = translators.unpack_dates(projected_sales_date)
 
             cash_flow['flow'] = ESTIMATED_FLOW
             cash_flow['flexibility'] = FLEXIBLE
@@ -367,6 +386,7 @@ def main(args=None):
             cash_flow['expense'] = ''
             cash_flow['income'] = translators.to_google_num(average_income) if average_income else ""
 
+            cash_flow['projected_date'] = projected_date
             projected_flows.append(cash_flow)
 
     # crear excel nuevo
@@ -421,6 +441,7 @@ def main(args=None):
     projected_flow_builder.add_header("I", "Detalle")
     projected_flow_builder.add_header("J", "Ingreso")
     projected_flow_builder.add_header("K", "Egreso")
+    projected_flow_builder.add_header("L", "Fecha de Proyección")
 
     projected_flow_builder.map_column("A", "week")
     projected_flow_builder.map_column("B", "year")
@@ -433,6 +454,7 @@ def main(args=None):
     projected_flow_builder.map_column("I", "details")
     projected_flow_builder.map_column("J", "income")
     projected_flow_builder.map_column("K", "expense")
+    projected_flow_builder.map_column("L", "projected_date")
 
     projected_flow_builder.build()
     projected_excelwriter.save()

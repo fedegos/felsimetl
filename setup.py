@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(name='felsimetl',
-      version='0.1.16',
+      version='0.1.17',
       description='ETL for Felsim',
       url='http://github.com/fedegos/felsimetl',
       author='Federico Gosman',
