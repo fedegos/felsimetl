@@ -102,7 +102,6 @@ def main(args=None):
     cheques_sheet = actual_excelreader.get_sheet(CHEQUES_SHEET_NAME)
     caja_sheet = actual_excelreader.get_sheet(CAJA_SHEET_NAME)
     credicoop_sheet = actual_excelreader.get_sheet(CREDICOOP_SHEET_NAME)
-    estimacion_sheet = actual_excelreader.get_sheet(ESTIMACION_SHEET_NAME)
 
     cuentas_corrientes_sheet = current_accounts_excelreader.get_sheet(CUENTAS_CORRIENTES_SHEET_NAME)
 
@@ -122,6 +121,7 @@ def main(args=None):
     # FLEXIBLE
 
     if include_projections:
+        estimacion_sheet = actual_excelreader.get_sheet(ESTIMACION_SHEET_NAME)
         extract_estimations(categories_reader, estimacion_sheet, new_categories, projected_date, projected_flows)
 
     # CUENTA CORRIENTE
