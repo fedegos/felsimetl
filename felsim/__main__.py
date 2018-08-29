@@ -126,8 +126,9 @@ def main(args=None):
 
     # CUENTA CORRIENTE
 
-    extract_currentaccounts(categories_reader, cuentas_corrientes_sheet, new_categories, projected_date,
-                            projected_flows)
+    if include_projections:
+        extract_currentaccounts(categories_reader, cuentas_corrientes_sheet, new_categories, projected_date,
+                                projected_flows)
 
     # crear excel nuevo
     filename = outputs_path + 'consolidado_real_' + time.strftime("%Y%m%d-%H%M%S") + '.xlsx'
@@ -141,15 +142,16 @@ def main(args=None):
     actual_excelwriter.save()
 
     # crear excel de proyecciones
-    projected_flow_filename = outputs_path + 'proyecciones_' + time.strftime("%Y%m%d-%H%M%S") + '.xlsx'
-    projected_excelwriter = exceladapter.ExcelWriter(projected_flow_filename)
-    projected_sheet = projected_excelwriter.create_sheet('Proyectado')
+    if include_projections:
+        projected_flow_filename = outputs_path + 'proyecciones_' + time.strftime("%Y%m%d-%H%M%S") + '.xlsx'
+        projected_excelwriter = exceladapter.ExcelWriter(projected_flow_filename)
+        projected_sheet = projected_excelwriter.create_sheet('Proyectado')
 
-    projected_flow_builder = excelbuilder.BasicBuilder(projected_sheet, projected_flows)
-    projected_flow_builder.map_configuration(get_projected_flows_table_config())
+        projected_flow_builder = excelbuilder.BasicBuilder(projected_sheet, projected_flows)
+        projected_flow_builder.map_configuration(get_projected_flows_table_config())
 
-    projected_flow_builder.build()
-    projected_excelwriter.save()
+        projected_flow_builder.build()
+        projected_excelwriter.save()
 
     # crear excel de categorías faltantes
 
