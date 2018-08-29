@@ -23,6 +23,21 @@ class BasicBuilder:
     def map_column(self, column_letter, item_key, mapper=null_item_mapper):
         self.column_mappings[column_letter] = {'key': item_key, 'mapper': mapper}
 
+    def map_configuration(self, configuration):
+        headers, columns = configuration
+
+        if len(headers) != len(columns):
+            raise ValueError("La coniguración es inválida. El número de columnas de cabecera y de datos no coinciden.")
+
+        for header in headers:
+            column_letter, title = header
+            self.add_header(column_letter, title)
+
+        for column in columns:
+            column_letter, key =column
+            self.map_column(column_letter, key)
+
+
     def build(self):
         self.__build_headers()
         self.__build_data_rows()
